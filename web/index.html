@@ -927,7 +927,6 @@
         </div>
 
         <div class="btn-row">
-          <button id="startBtn" style="flex:1">Start</button>
           <button id="stopBtn" class="secondary" style="flex:1">Stop</button>
         </div>
 
@@ -2201,7 +2200,9 @@
       const sessionId = sessionIdEl.value.trim();
       const durationSec = Number(sessionModeEl.value || 600);
       try {
-        startBtn.disabled = true;
+        if (startBtn) {
+          startBtn.disabled = true;
+        }
         clearTimeline();
         lastRecordingUrl = "";
         setRecordingStatus("Recording is off.", false, false);
@@ -2236,7 +2237,9 @@
         refreshRecordingButtons();
       } finally {
         startInFlight = false;
-        startBtn.disabled = sessionStarted;
+        if (startBtn) {
+          startBtn.disabled = sessionStarted;
+        }
       }
     }
 
@@ -2351,7 +2354,9 @@
       }
       submitCodeBtn.disabled = isLocked;
       stopBtn.disabled = isLocked;
-      startBtn.disabled = !isLocked;
+      if (startBtn) {
+        startBtn.disabled = !isLocked;
+      }
       for (const roleKey of roleKeys) {
         roleInputs[roleKey].disabled = isLocked;
         roleSendButtons[roleKey].disabled = isLocked;
@@ -2404,9 +2409,11 @@
       }, 1000);
     }
 
-    document.getElementById("startBtn").addEventListener("click", async () => {
-      try { await startSession(); } catch (e) { setStatus(e.message, true); }
-    });
+    if (startBtn) {
+      startBtn.addEventListener("click", async () => {
+        try { await startSession(); } catch (e) { setStatus(e.message, true); }
+      });
+    }
     document.getElementById("stopBtn").addEventListener("click", async () => {
       try { await stopSession(); } catch (e) { setStatus(e.message, true); }
     });
@@ -2442,7 +2449,14 @@
       }
     });
     welcomeCloseBtnEl.addEventListener("click", closeWelcomeModal);
-    welcomeContinueBtnEl.addEventListener("click", closeWelcomeModal);
+    welcomeContinueBtnEl.addEventListener("click", async () => {
+      closeWelcomeModal();
+      try {
+        await startSession();
+      } catch (e) {
+        setStatus(e.message, true);
+      }
+    });
     welcomeModalEl.addEventListener("click", (ev) => {
       if (ev.target === welcomeModalEl) {
         closeWelcomeModal();
