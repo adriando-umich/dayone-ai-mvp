@@ -1,6 +1,10 @@
 # Runtime artifacts
 recordings/
 *.log
+*.webm
+*.webp
+*.mp4
+*.mov
 
 # Local config
 .env
