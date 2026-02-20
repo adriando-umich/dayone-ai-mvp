@@ -1,0 +1,365 @@
+{
+  "name": "WF_Main_Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sim/v2/session/start",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e33e8c37-bce8-463a-9710-a95fbca6f5ff",
+      "name": "Webhook Start",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nif (!body.session_id) throw new Error('Missing session_id');\n\nreturn [{\n  json: {\n    ok: true,\n    session_id: body.session_id,\n    message: 'Orchestrator ready',\n    note: 'Use /sim/v2/session/event for runtime routing'\n  }\n}];"
+      },
+      "id": "338927ac-e10b-44ba-a8fd-a2f440440642",
+      "name": "Init Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -820,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "id": "2e4364ec-f728-4783-be8b-869a2a23d6a8",
+      "name": "Respond Start",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [
+        -600,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sim/v2/session/event",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7f231f02-3772-495a-8630-2ff8d8468f4a",
+      "name": "Webhook Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst data = body.data || {};\nconst txt = String(data.text || '').toLowerCase();\nconst addressed = String(data.addressed_to || '').toLowerCase();\n\nlet role = 'techlead';\nif (addressed === 'qa') role = 'qa';\nelse if (addressed === 'ba') role = 'ba';\nelse if (addressed === 'tech_lead' || addressed === 'techlead') role = 'techlead';\nelse {\n  if (/(repro|log|test|duplicate|steps)/.test(txt)) role = 'qa';\n  else if (/(deadline|eta|scope|business|impact|campaign|vip)/.test(txt)) role = 'ba';\n  else role = 'techlead';\n}\n\nconst frontendWebhook = data.frontend_agent_webhook || body.frontend_agent_webhook || 'http://localhost:3000/sim/session/agent-message';\n\nreturn [{\n  json: {\n    session_id: body.session_id,\n    role,\n    candidate_last_message: data.text || '',\n    frontend_agent_webhook: frontendWebhook,\n    raw_event: body\n  }\n}];"
+      },
+      "id": "5d31bc2b-bfdc-427e-bd18-dcd3dbf65e6f",
+      "name": "Route Role",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -820,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.role}}",
+              "operation": "equals",
+              "value2": "qa"
+            }
+          ]
+        }
+      },
+      "id": "f34a00f2-d52e-4624-a3db-305fba7e4acc",
+      "name": "If QA",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -600,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.role}}",
+              "operation": "equals",
+              "value2": "ba"
+            }
+          ]
+        }
+      },
+      "id": "4c6259ff-c7be-4924-b5d5-66f3a6cd716e",
+      "name": "If BA",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -380,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/sim/v2/agent/qa",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { session_id: $json.session_id, candidate_last_message: $json.candidate_last_message } }}",
+        "options": {}
+      },
+      "id": "a02f6fd0-6f91-4d47-9f99-66ea2f89f0f9",
+      "name": "Call QA Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -380,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/sim/v2/agent/ba",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { session_id: $json.session_id, candidate_last_message: $json.candidate_last_message } }}",
+        "options": {}
+      },
+      "id": "34f1fcd8-d661-48bf-b718-a1282fc568d0",
+      "name": "Call BA Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -160,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/sim/v2/agent/techlead",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { session_id: $json.session_id, candidate_last_message: $json.candidate_last_message } }}",
+        "options": {}
+      },
+      "id": "eac6ce9c-b6af-4842-915e-f7077314dc28",
+      "name": "Call TechLead Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -160,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const merged = $json;\nconst agent = merged.agent || 'tech_lead';\nlet text = String(merged.text || 'Please clarify your decision in one line.').trim();\n\n// Guardrail: max 1 question per turn.\nconst qMarks = (text.match(/\\?/g) || []).length;\nif (qMarks > 1) {\n  const firstQ = text.split('?')[0].trim();\n  text = `${firstQ}?`;\n}\n\nreturn [{\n  json: {\n    endpointUrl: $item(0).$node['Route Role'].json.frontend_agent_webhook,\n    payload: {\n      session_id: $item(0).$node['Route Role'].json.session_id,\n      message_id: `msg_${agent}_${Date.now()}`,\n      agent: agent === 'techlead' ? 'tech_lead' : agent,\n      kind: 'question',\n      text,\n      meta: { routed: true }\n    },\n    responseBody: { ok: true, role: agent }\n  }\n}];"
+      },
+      "id": "9a8fd18f-2396-4b2b-9640-7248cc448005",
+      "name": "Guardrail + Compose Outbound",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.endpointUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.payload}}",
+        "options": {}
+      },
+      "id": "31b9e8c3-4dd0-4f3b-94a4-e7f7c44d5e24",
+      "name": "Send To Frontend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        320,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json.responseBody || { ok: true }}}",
+        "options": {}
+      },
+      "id": "d97e6f9f-ac6b-4c2a-a9bf-7d98574ec8b2",
+      "name": "Respond Event",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [
+        540,
+        340
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Start": {
+      "main": [
+        [
+          {
+            "node": "Init Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Event": {
+      "main": [
+        [
+          {
+            "node": "Route Role",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Role": {
+      "main": [
+        [
+          {
+            "node": "If QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If QA": {
+      "main": [
+        [
+          {
+            "node": "Call QA Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If BA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If BA": {
+      "main": [
+        [
+          {
+            "node": "Call BA Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call TechLead Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call QA Workflow": {
+      "main": [
+        [
+          {
+            "node": "Guardrail + Compose Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call BA Workflow": {
+      "main": [
+        [
+          {
+            "node": "Guardrail + Compose Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call TechLead Workflow": {
+      "main": [
+        [
+          {
+            "node": "Guardrail + Compose Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardrail + Compose Outbound": {
+      "main": [
+        [
+          {
+            "node": "Send To Frontend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send To Frontend": {
+      "main": [
+        [
+          {
+            "node": "Respond Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "0cabf147-596e-4467-a834-5f3f6bf01fbb",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "name": "WF_Agent_TechLead",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sim/v2/agent/techlead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7df40e21-2f24-4b58-956f-5d0f604fefdb",
+      "name": "Webhook TechLead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -420,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst candidateMsg = String(body.candidate_last_message || '').trim();\n\nlet text = 'Pick one now: hotfix first or VIP feature first, and why?';\nif (/hotfix first/i.test(candidateMsg)) {\n  text = 'State rollback and monitoring plan in one concise answer.';\n} else if (/vip first/i.test(candidateMsg)) {\n  text = 'State immediate risk controls if VIP ships first.';\n}\n\nreturn [{\n  json: {\n    agent: 'tech_lead',\n    text,\n    intent_tag: 'techlead_tradeoff_risk',\n    needs_followup: true\n  }\n}];"
+      },
+      "id": "f93f6c19-d8a6-4f3e-a72f-b93430bff899",
+      "name": "Generate TechLead Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "id": "32102287-7455-45ce-b84c-4136f2fdce94",
+      "name": "Respond TechLead",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [
+        60,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook TechLead": {
+      "main": [
+        [
+          {
+            "node": "Generate TechLead Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate TechLead Reply": {
+      "main": [
+        [
+          {
+            "node": "Respond TechLead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1af51416-1251-4b18-8cb5-5dcf352bc9b0",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

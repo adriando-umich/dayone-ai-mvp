@@ -1,0 +1,81 @@
+{
+  "name": "WF_Agent_BA",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sim/v2/agent/ba",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fd575c74-17c8-43a8-bf1d-c4f6cf28d95a",
+      "name": "Webhook BA",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -420,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst candidateMsg = String(body.candidate_last_message || '').trim();\n\nlet text = 'Can you give delivery sequencing and ETA in one line?';\nif (/delay|defer|later|after hotfix/i.test(candidateMsg)) {\n  text = 'If we defer VIP discount, what business impact should I communicate now?';\n} else if (/ship vip|vip first/i.test(candidateMsg)) {\n  text = 'If VIP ships now, how do you contain payment risk in the same window?';\n}\n\nreturn [{\n  json: {\n    agent: 'ba',\n    text,\n    intent_tag: 'ba_scope_deadline_impact',\n    needs_followup: true\n  }\n}];"
+      },
+      "id": "6cc12a7c-8ad4-4bf2-bf63-7e88fc57bda1",
+      "name": "Generate BA Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "id": "9b0cbbdb-ed8b-47e6-aa1d-b0eb457f6a8b",
+      "name": "Respond BA",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [
+        60,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook BA": {
+      "main": [
+        [
+          {
+            "node": "Generate BA Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate BA Reply": {
+      "main": [
+        [
+          {
+            "node": "Respond BA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4f4d2f5d-f3e4-4f71-a8c5-d16ecf4a0956",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

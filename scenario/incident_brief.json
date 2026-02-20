@@ -1,0 +1,71 @@
+{
+  "incident_id": "INC-PAY-2201",
+  "title": "Duplicate charge during gateway retry path",
+  "company": "DayOne.ai",
+  "product": "DayOne Payflow",
+  "severity": "P0",
+  "summary": "A subset of checkout orders are charged twice when a timeout triggers retry and idempotency is not enforced before charging.",
+  "timeline": {
+    "started_at_utc": "2026-02-20T22:00:11Z",
+    "detected_at_utc": "2026-02-20T22:00:12Z",
+    "escalated_at_utc": "2026-02-20T22:00:13Z"
+  },
+  "signals": {
+    "duplicate_orders": 17,
+    "estimated_loss_usd": 1840,
+    "latest_example_order_id": "ORD-10421",
+    "latest_example_tx_ids": ["TX-89001", "TX-89002"]
+  },
+  "impact_scope": {
+    "channel": "Web checkout",
+    "affected_users": "Subset of users hitting gateway timeout + retry window",
+    "customer_risk": "Double charge and trust impact",
+    "business_risk": "Refund operations, campaign risk, reputation damage"
+  },
+  "known_root_cause_hypothesis": "Idempotency key exists in payload but is not enforced before chargeGateway call.",
+  "available_controls": {
+    "containment_options": [
+      "Enforce idempotency guard before gateway call",
+      "Temporarily disable automatic retry path for payment gateway timeout",
+      "Block duplicate write by orderId + idempotencyKey in payment record layer"
+    ],
+    "rollback_options": [
+      "Revert payment flow patch",
+      "Disable new payment guard via feature flag",
+      "Switch checkout to safe-degraded path for affected channel"
+    ],
+    "validation_signals": [
+      "No new reconciliation.duplicate_charge logs for 10 minutes",
+      "No order with txCount > 1 in rolling window",
+      "Support ticket rate for double_charge returns to baseline"
+    ]
+  },
+  "data_correction": {
+    "required": true,
+    "default_plan": "Generate duplicate-charge report, queue refunds, notify support."
+  },
+  "business_pressure": {
+    "active_ticket_id": "BA-431",
+    "request": "Launch 10% VIP discount today for web channel",
+    "claimed_uplift": "+4% conversion",
+    "constraint": "Business asks launch in current window, but P0 is active"
+  },
+  "unknowns": [
+    "Exact percentage of affected checkouts is not fully confirmed yet",
+    "Whether retries from external gateway clients contribute to duplicates"
+  ],
+  "role_notes": {
+    "qa": [
+      "Use concrete logs, repro hints, and validation criteria.",
+      "If asked for details, share known facts then one next check."
+    ],
+    "ba": [
+      "Stay on sequencing, ETA, and stakeholder messaging.",
+      "Acknowledge risk constraints from P0 before pressing timeline."
+    ],
+    "tech_lead": [
+      "Anchor decisions to containment first, then safe rollout.",
+      "Always cover rollback, monitoring, and data correction readiness."
+    ]
+  }
+}

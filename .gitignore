@@ -1,0 +1,11 @@
+# Runtime artifacts
+recordings/
+*.log
+
+# Local config
+.env
+.env.*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

@@ -1,0 +1,815 @@
+{
+  "name": "DayOne.ai MVP Orchestrator (10m)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sim/session/start",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b12a1e2b-4c70-4d4b-8dd5-4d1bf4e2fba1",
+      "name": "Webhook Start Session",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1320,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst sessionId = body.session_id;\nif (!sessionId) {\n  throw new Error('Missing session_id');\n}\n\nconst startedAt = body.started_at ? new Date(body.started_at).getTime() : Date.now();\nconst frontendAgentWebhook = body.frontend_agent_webhook || body.frontend_webhook || 'http://localhost:3000/sim/session/agent-message';\nconst endCallbackWebhook = body.end_callback_webhook || 'http://localhost:3000/sim/session/end';\n\nconst globalData = this.getWorkflowStaticData('global');\nif (!globalData.sessions) globalData.sessions = {};\n\nglobalData.sessions[sessionId] = {\n  sessionId,\n  startedAt,\n  frontendAgentWebhook,\n  endCallbackWebhook,\n  candidateId: body.candidate_id || 'unknown',\n  scenarioId: body.scenario_id || 'payment_double_charge_vip_discount_v1',\n  micActive: false,\n  typingLastTs: 0,\n  lastSpeechEndTs: 0,\n  lowSttCount: 0,\n  transcriptCount: 0\n};\n\nreturn [{\n  json: {\n    session_id: sessionId,\n    started_at_ms: startedAt,\n    frontend_agent_webhook: frontendAgentWebhook,\n    end_callback_webhook: endCallbackWebhook,\n    responseBody: {\n      ok: true,\n      session_id: sessionId,\n      message: 'Session started and orchestration scheduled.'\n    }\n  }\n}];"
+      },
+      "id": "ee5306ef-b9d9-4921-9d0f-f94a6d8475be",
+      "name": "Init Session State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1100,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json.responseBody}}",
+        "options": {}
+      },
+      "id": "0ac3c4b0-b813-4184-b6e8-2441ee7db2fd",
+      "name": "Respond Start",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [
+        -880,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = this.getWorkflowStaticData('global').sessions?.[$json.session_id];\nif (!state) throw new Error('Session not found in state');\n\nreturn [{\n  json: {\n    session_id: $json.session_id,\n    endpointUrl: state.frontendAgentWebhook,\n    body: {\n      session_id: $json.session_id,\n      message_id: `msg_qa_001_${Date.now()}`,\n      agent: 'qa',\n      kind: 'question',\n      text: 'Critical: duplicate payment charge detected in production. We need immediate containment.',\n      ts_sec: 0,\n      meta: { anchor: false, window: 'W1_QA_OPENER' }\n    }\n  }\n}];"
+      },
+      "id": "180a18c0-f264-4b91-99c2-6f6d84bd7f13",
+      "name": "Compose QA Opener",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -860,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.endpointUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "16f7694c-6ff6-4022-b1dd-c73f30e66f25",
+      "name": "Send QA Opener",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -640,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 60,
+        "unit": "seconds"
+      },
+      "id": "f34b3e04-bc11-4f0c-90d6-52c1797f0cc4",
+      "name": "Wait to T+01:00",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -420,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = this.getWorkflowStaticData('global').sessions?.[$json.session_id];\nif (!state) return items;\n\nreturn [{\n  json: {\n    session_id: $json.session_id,\n    endpointUrl: state.frontendAgentWebhook,\n    body: {\n      session_id: $json.session_id,\n      message_id: `msg_tl_001_${Date.now()}`,\n      agent: 'tech_lead',\n      kind: 'question',\n      text: 'What is your immediate remediation approach for this P0 issue?',\n      ts_sec: 60,\n      meta: { anchor: false, window: 'W2_TL_OPENER' }\n    }\n  }\n}];"
+      },
+      "id": "2db7f5ea-9bc8-4a1b-a2b0-f42fca3cf1d9",
+      "name": "Compose TL Opener",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.endpointUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "676def26-5691-4fe5-b84d-7347830f0439",
+      "name": "Send TL Opener",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        20,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 120,
+        "unit": "seconds"
+      },
+      "id": "2f207f8f-f63b-46b9-bf61-64f7226e4c47",
+      "name": "Wait to T+03:00",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = this.getWorkflowStaticData('global').sessions?.[$json.session_id];\nif (!state) return items;\n\nreturn [{\n  json: {\n    session_id: $json.session_id,\n    endpointUrl: state.frontendAgentWebhook,\n    body: {\n      session_id: $json.session_id,\n      message_id: `msg_ba_anchor_${Date.now()}`,\n      agent: 'ba',\n      kind: 'question',\n      text: 'VIP discount campaign is due now. Can we still push this in the same release window?',\n      ts_sec: 180,\n      meta: { anchor: true, window: 'ANCHOR_BA' }\n    }\n  }\n}];"
+      },
+      "id": "246a2f2f-ae86-4a77-b1b0-cfdce6e373ea",
+      "name": "Compose BA Anchor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.endpointUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "9be73bc6-88da-4693-b154-f4f066839619",
+      "name": "Send BA Anchor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "21324138-3f8f-4d2f-a86f-2dc4b44c9cea",
+      "name": "Wait to T+03:30",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = this.getWorkflowStaticData('global').sessions?.[$json.session_id];\nif (!state) return items;\n\nreturn [{\n  json: {\n    session_id: $json.session_id,\n    endpointUrl: state.frontendAgentWebhook,\n    body: {\n      session_id: $json.session_id,\n      message_id: `msg_tl_002_${Date.now()}`,\n      agent: 'tech_lead',\n      kind: 'question',\n      text: 'Choose one now: hotfix first or VIP feature first. Explain in one sentence.',\n      ts_sec: 210,\n      meta: { anchor: false, window: 'W3_TL_PRIORITY_CHALLENGE' }\n    }\n  }\n}];"
+      },
+      "id": "9f9649fa-b347-46ad-aadf-e27a53fd43ef",
+      "name": "Compose TL Priority Challenge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.endpointUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "504e3e0a-8d31-4347-93be-23b66f6b260e",
+      "name": "Send TL Priority Challenge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 150,
+        "unit": "seconds"
+      },
+      "id": "66a61127-664c-4c0a-843c-64e3754a65a6",
+      "name": "Wait to T+06:00",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = this.getWorkflowStaticData('global').sessions?.[$json.session_id];\nif (!state) return items;\n\nreturn [{\n  json: {\n    session_id: $json.session_id,\n    endpointUrl: state.frontendAgentWebhook,\n    body: {\n      session_id: $json.session_id,\n      message_id: `msg_qa_002_${Date.now()}`,\n      agent: 'qa',\n      kind: 'question',\n      text: 'Update: duplicate-charge count is increasing. What is your containment + verification plan?',\n      ts_sec: 360,\n      meta: { anchor: false, window: 'W4_QA_FOLLOWUP' }\n    }\n  }\n}];"
+      },
+      "id": "1552d9bb-92ea-4f7a-a3ed-d50cbf3e2ec6",
+      "name": "Compose QA Followup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.endpointUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "ee17e2a7-f1a1-4c1f-941f-a7661448d15d",
+      "name": "Send QA Followup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 60,
+        "unit": "seconds"
+      },
+      "id": "8ad9f5db-ed10-45bc-9722-6657a291f143",
+      "name": "Wait to T+07:00",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2220,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = this.getWorkflowStaticData('global').sessions?.[$json.session_id];\nif (!state) return items;\n\nreturn [{\n  json: {\n    session_id: $json.session_id,\n    endpointUrl: state.frontendAgentWebhook,\n    body: {\n      session_id: $json.session_id,\n      message_id: `msg_tl_003_${Date.now()}`,\n      agent: 'tech_lead',\n      kind: 'question',\n      text: 'Give rollback, monitoring, and customer-remediation steps now.',\n      ts_sec: 420,\n      meta: { anchor: false, window: 'W5_TL_RISK_PROBE' }\n    }\n  }\n}];"
+      },
+      "id": "6d339ce6-2fbe-454f-a49e-ad95b01dbf4b",
+      "name": "Compose TL Risk Probe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2440,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.endpointUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "f6d9fcff-415d-4f19-a08d-407162d9db73",
+      "name": "Send TL Risk Probe",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2660,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 120,
+        "unit": "seconds"
+      },
+      "id": "3939b550-a309-41e4-ae22-a24f2e29f8d6",
+      "name": "Wait to T+09:00",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2880,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = this.getWorkflowStaticData('global').sessions?.[$json.session_id];\nif (!state) return items;\n\nreturn [{\n  json: {\n    session_id: $json.session_id,\n    endpointUrl: state.frontendAgentWebhook,\n    body: {\n      session_id: $json.session_id,\n      message_id: `msg_tl_004_${Date.now()}`,\n      agent: 'tech_lead',\n      kind: 'question',\n      text: 'Final call: what do you ship now, and what is deferred?',\n      ts_sec: 540,\n      meta: { anchor: false, window: 'W6_TL_FINAL_CHALLENGE' }\n    }\n  }\n}];"
+      },
+      "id": "17f5017e-0d9a-48bb-b55b-12ca88707ff5",
+      "name": "Compose TL Final Challenge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3100,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.endpointUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "7b7eb2ff-e8e3-44d8-9dea-827bf4d0057d",
+      "name": "Send TL Final Challenge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3320,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 60,
+        "unit": "seconds"
+      },
+      "id": "8189278d-9023-4dd9-9d37-d70f0a730975",
+      "name": "Wait to T+10:00",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3540,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = this.getWorkflowStaticData('global').sessions?.[$json.session_id];\nif (!state) return items;\n\nreturn [{\n  json: {\n    endpointUrl: state.endCallbackWebhook,\n    body: {\n      session_id: $json.session_id,\n      ended_at_sec: 600,\n      reason: 'anchor_end_reached'\n    }\n  }\n}];"
+      },
+      "id": "fce1fd22-0876-4e97-820d-1661496fa0af",
+      "name": "Compose End Callback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3760,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.endpointUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "47f807f1-f122-41cf-bf23-b4168ce35ac5",
+      "name": "Send End Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3980,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sim/session/event",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2f23d25f-c5f1-4f5f-a307-c2dfb69838cc",
+      "name": "Webhook Candidate Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1320,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst sessionId = body.session_id;\nif (!sessionId) throw new Error('Missing session_id');\n\nconst globalData = this.getWorkflowStaticData('global');\nif (!globalData.sessions || !globalData.sessions[sessionId]) {\n  return [{ json: { shouldReply: false, responseBody: { ok: false, error: 'session_not_found' } } }];\n}\n\nconst s = globalData.sessions[sessionId];\nconst eventType = body.event_type;\nconst data = body.data || {};\nconst now = Date.now();\n\nlet shouldReply = false;\nlet replyAgent = 'tech_lead';\nlet replyText = '';\n\nif (eventType === 'mic_state_changed') {\n  s.micActive = !!data.mic_active;\n}\n\nif (eventType === 'speech_end') {\n  s.micActive = false;\n  s.lastSpeechEndTs = now;\n}\n\nif (eventType === 'typing_state_changed' && data.typing === true) {\n  s.typingLastTs = now;\n}\n\nif (eventType === 'candidate_message') {\n  s.transcriptCount = (s.transcriptCount || 0) + 1;\n  const txt = String(data.text || '').toLowerCase();\n  const conf = Number(data.stt_confidence ?? 1);\n  const addressed = String(data.addressed_to || '').toLowerCase();\n\n  if (conf < 0.75) {\n    s.lowSttCount = (s.lowSttCount || 0) + 1;\n    shouldReply = true;\n    replyAgent = addressed || 'tech_lead';\n    replyText = s.lowSttCount >= 2\n      ? 'I still could not catch that clearly. Please type one short line so we do not lose time.'\n      : 'I did not catch the last part clearly. Please repeat in one short line.';\n  } else {\n    s.lowSttCount = 0;\n\n    if (['qa', 'ba', 'tech_lead', 'techlead'].includes(addressed)) {\n      replyAgent = addressed === 'techlead' ? 'tech_lead' : addressed;\n      shouldReply = true;\n      replyText = replyAgent === 'qa'\n        ? 'QA here. Confirm the exact repro step you want first, then I will provide logs.'\n        : replyAgent === 'ba'\n          ? 'BA here. Give me your delivery decision and ETA in one line.'\n          : 'Tech Lead here. Be explicit: priority, risk, and rollback.';\n    } else {\n      const isQAIntent = /(repro|test|log|steps|duplicate)/.test(txt);\n      const isBAIntent = /(scope|deadline|eta|business|impact|campaign|vip)/.test(txt);\n      const isTLIntent = /(trade|risk|rollback|design|approach|hotfix|feature)/.test(txt);\n\n      if (isQAIntent || isBAIntent || isTLIntent) {\n        shouldReply = true;\n        replyAgent = isQAIntent ? 'qa' : (isBAIntent ? 'ba' : 'tech_lead');\n        replyText = replyAgent === 'qa'\n          ? 'QA update: I can share repro and validation criteria. What do you want first?'\n          : replyAgent === 'ba'\n            ? 'BA update: I need your sequencing decision and business impact statement.'\n            : 'Tech Lead: choose now and justify with production risk.';\n      }\n    }\n  }\n}\n\nglobalData.sessions[sessionId] = s;\n\nreturn [{\n  json: {\n    shouldReply,\n    endpointUrl: s.frontendAgentWebhook,\n    body: {\n      session_id: sessionId,\n      message_id: `msg_route_${Date.now()}`,\n      agent: replyAgent,\n      kind: 'question',\n      text: replyText,\n      ts_sec: null,\n      meta: { anchor: false, routed: true }\n    },\n    responseBody: { ok: true, should_reply: shouldReply }\n  }\n}];"
+      },
+      "id": "241eaef5-0ccf-475a-801c-00e3eb51bc24",
+      "name": "Update State and Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1100,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.shouldReply}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "53446635-8ca4-4753-b87e-07f376771346",
+      "name": "If Should Reply",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -880,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.endpointUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "f0f6c0be-f7cf-400f-a947-2c550afe9e4e",
+      "name": "Send Routed Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -660,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json.responseBody}}",
+        "options": {}
+      },
+      "id": "ca3724bb-c9a7-425d-8f19-d1ef8f130aff",
+      "name": "Respond Event",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [
+        -660,
+        440
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Start Session": {
+      "main": [
+        [
+          {
+            "node": "Init Session State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Session State": {
+      "main": [
+        [
+          {
+            "node": "Respond Start",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compose QA Opener",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose QA Opener": {
+      "main": [
+        [
+          {
+            "node": "Send QA Opener",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send QA Opener": {
+      "main": [
+        [
+          {
+            "node": "Wait to T+01:00",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait to T+01:00": {
+      "main": [
+        [
+          {
+            "node": "Compose TL Opener",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose TL Opener": {
+      "main": [
+        [
+          {
+            "node": "Send TL Opener",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send TL Opener": {
+      "main": [
+        [
+          {
+            "node": "Wait to T+03:00",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait to T+03:00": {
+      "main": [
+        [
+          {
+            "node": "Compose BA Anchor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose BA Anchor": {
+      "main": [
+        [
+          {
+            "node": "Send BA Anchor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send BA Anchor": {
+      "main": [
+        [
+          {
+            "node": "Wait to T+03:30",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait to T+03:30": {
+      "main": [
+        [
+          {
+            "node": "Compose TL Priority Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose TL Priority Challenge": {
+      "main": [
+        [
+          {
+            "node": "Send TL Priority Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send TL Priority Challenge": {
+      "main": [
+        [
+          {
+            "node": "Wait to T+06:00",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait to T+06:00": {
+      "main": [
+        [
+          {
+            "node": "Compose QA Followup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose QA Followup": {
+      "main": [
+        [
+          {
+            "node": "Send QA Followup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send QA Followup": {
+      "main": [
+        [
+          {
+            "node": "Wait to T+07:00",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait to T+07:00": {
+      "main": [
+        [
+          {
+            "node": "Compose TL Risk Probe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose TL Risk Probe": {
+      "main": [
+        [
+          {
+            "node": "Send TL Risk Probe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send TL Risk Probe": {
+      "main": [
+        [
+          {
+            "node": "Wait to T+09:00",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait to T+09:00": {
+      "main": [
+        [
+          {
+            "node": "Compose TL Final Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose TL Final Challenge": {
+      "main": [
+        [
+          {
+            "node": "Send TL Final Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send TL Final Challenge": {
+      "main": [
+        [
+          {
+            "node": "Wait to T+10:00",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait to T+10:00": {
+      "main": [
+        [
+          {
+            "node": "Compose End Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose End Callback": {
+      "main": [
+        [
+          {
+            "node": "Send End Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Candidate Event": {
+      "main": [
+        [
+          {
+            "node": "Update State and Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update State and Route": {
+      "main": [
+        [
+          {
+            "node": "If Should Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Should Reply": {
+      "main": [
+        [
+          {
+            "node": "Send Routed Reply",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Routed Reply": {
+      "main": [
+        [
+          {
+            "node": "Respond Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9f52ad4e-9897-4a65-9d81-68a5a33d0e77",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "SimulHireMVP10m"
+}

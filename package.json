@@ -1,0 +1,11 @@
+{
+  "name": "dayone-ai-mvp",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node local_receiver.js"
+  }
+}

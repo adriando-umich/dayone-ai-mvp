@@ -1,0 +1,10 @@
+[2026-02-20T22:00:11.203Z] INFO checkout.start orderId=ORD-10421 userId=U-7781 amount=12000 isVip=true
+[2026-02-20T22:00:11.748Z] INFO payment.gateway.request orderId=ORD-10421 attempt=1
+[2026-02-20T22:00:12.112Z] WARN payment.gateway.timeout orderId=ORD-10421 attempt=1 timeoutMs=300
+[2026-02-20T22:00:12.114Z] INFO payment.gateway.request orderId=ORD-10421 attempt=2
+[2026-02-20T22:00:12.418Z] INFO payment.gateway.success orderId=ORD-10421 txId=TX-89001 amount=10800
+[2026-02-20T22:00:12.423Z] INFO payment.gateway.success orderId=ORD-10421 txId=TX-89002 amount=10800
+[2026-02-20T22:00:12.447Z] ERROR reconciliation.duplicate_charge orderId=ORD-10421 txCount=2
+[2026-02-20T22:00:13.009Z] INFO support.ticket.created ticket=SUP-99231 severity=P0 reason=double_charge
+[2026-02-20T22:00:13.890Z] INFO campaign.vip_discount.status campaignId=CMP-VIP-31 state=scheduled
+[2026-02-20T22:00:14.132Z] WARN finance.exposure.estimate duplicateOrders=17 estimatedLossUsd=1840
